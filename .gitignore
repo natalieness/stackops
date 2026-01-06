@@ -1,0 +1,9 @@
+
+# any files with data formats
+*.csv
+*.tif
+*.tiff
+*.hdf
+*.h5
+*.nc
+*.xlsx
