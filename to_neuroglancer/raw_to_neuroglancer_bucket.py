@@ -31,12 +31,15 @@ info = CloudVolume.create_new_info(
 	encoding = 'raw', # see: https://github.com/seung-lab/cloud-volume/wiki/Compression-Choices
 	resolution = [ 8, 8, 8 ], # X,Y,Z values in nanometers
 	voxel_offset = [ 0, 0, 0 ], # values X,Y,Z values in voxels
-	chunk_size = [ 128, 128, 1 ], # rechunk of image X,Y,Z in voxels
+	chunk_size = [ 128, 128, 128 ], # rechunk of image X,Y,Z in voxels
 	volume_size = [  1250, 1250, 672 ], # X,Y,Z size in voxels
 )
 
 # to work with RGB data, set num_channels=3 and data_type='uint8' above. need to also paste some code into neuroglancer 
 # rendering box if using RGB, see https://github.com/seung-lab/cloud-volume/wiki/Example-Single-Machine-Dataset-Upload
+
+# path to raw image
+img_name = 'local/path/to/image.tif'
 
 # If you're using amazon or the local file system, you can replace 'gs' with 's3' or 'file'
 vol = CloudVolume('gs://bucket/dataset/layer', info=info)
@@ -46,29 +49,43 @@ vol.provenance.owners = ['michael.winding@crick.ac.uk/mwinding']  #['email_addre
 vol.commit_info() # generates gs://bucket/dataset/layer/info json file
 vol.commit_provenance() # generates gs://bucket/dataset/layer/provenance json file
 
-direct = 'local/path/to/images'
 
-progress_dir = mkdir('progress/') # unlike os.mkdir doesn't crash on prexisting 
-done_files = set([ int(z) for z in os.listdir(progress_dir) ])
-all_files = set(range(vol.bounds.minpt.z, vol.bounds.maxpt.z + 1))
+# check file is a tif file 
+def is_tif(filename):
+	return filename.lower().endswith(('.tif', '.tiff'))
 
-to_upload = [ int(z) for z in list(all_files.difference(done_files)) ]
-to_upload.sort()
 
-# upload is stacked into z slices which only works if chunk size has z=1? 
-# so probably just run this once for each chunk, instead of iterating over z slices. 
+image = tifffile.imread(img_name)
+# image = np.swapaxes(image, 0, 1)
+# image = image[..., np.newaxis]
+print('Image stack shape: ', image.shape)
+assert image.shape == (1250, 1250, 672)  # check matches volume size above
+vol[:,:,:] = image
 
-''' Note: need to figgure out here whether we want to split into single z slices and use chunk_size 128 128 1
- or whether to change code below to upload in chunks of 128 z slices at a time and subdivide the image loaded in earlier.'''
 
-def process(z):
-	img_name = 'brain_%06d.tif' % z
-	print('Processing ', img_name)
-    image = tifffile.imread(os.path.join(direct, img_name))
-    image = np.swapaxes(image, 0, 1)
-    image = image[..., np.newaxis]
-    vol[:,:, z] = image
-	touch(os.path.join(progress_dir, str(z)))
+# legacy batching for larger files 
 
-with ProcessPoolExecutor(max_workers=8) as executor:
-    executor.map(process, to_upload)
+# progress_dir = mkdir('progress/') # unlike os.mkdir doesn't crash on prexisting 
+# done_files = set([ int(z) for z in os.listdir(progress_dir) ])
+# all_files = set(range(vol.bounds.minpt.z, vol.bounds.maxpt.z + 1))
+
+# to_upload = [ int(z) for z in list(all_files.difference(done_files)) ]
+# to_upload.sort()
+
+# # upload is stacked into z slices which only works if chunk size has z=1? 
+# # so probably just run this once for each chunk, instead of iterating over z slices. 
+
+# ''' Note: need to figgure out here whether we want to split into single z slices and use chunk_size 128 128 1
+#  or whether to change code below to upload in chunks of 128 z slices at a time and subdivide the image loaded in earlier.'''
+
+# def process(z):
+# 	img_name = 'brain_%06d.tif' % z
+# 	print('Processing ', img_name)
+#     image = tifffile.imread(os.path.join(direct, img_name))
+#     image = np.swapaxes(image, 0, 1)
+#     image = image[..., np.newaxis]
+#     vol[:,:, z] = image
+# 	touch(os.path.join(progress_dir, str(z)))
+
+# with ProcessPoolExecutor(max_workers=8) as executor:
+#     executor.map(process, to_upload)
