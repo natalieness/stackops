@@ -1,0 +1,2 @@
+# stackops
+Image stack operations
