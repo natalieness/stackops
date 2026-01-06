@@ -1,29 +1,33 @@
 
-''' Script to upload raw uncompressed image datasets to cloud bucket in neuroglancer-
-    compatible format.
+''' Script to upload raw uncompressed image datasets to cloud bucket in neuroglancer-compatible format.
 
-adapted from https://github.com/seung-lab/cloud-volume/wiki/Example-Single-Machine-Dataset-Upload
-The resumable upload feature works by writing the index of uploaded slices to disk by 
-touching filenames in a newly created ./progress/ directory. 
-You can easily reset the upload with rm -r ./progress or avoid reuploading files by touching 
-e.g. touch progress/5 which would avoid uploading z=5.
-
-A curious feature of this script is that it uses ProcessPoolExecutor as an independent multi-process 
-runner rather than using CloudVolume's parallel=True option. This is helpful because it helps 
-parallelize the file reading and decoding step. ProcessPoolExecutor is used instead of multiprocessing.
-Pool as the original multiprocessing module hangs when a child process dies.
+	adapted from https://github.com/seung-lab/cloud-volume/wiki/Example-Single-Machine-Dataset-Upload
 
 '''
 
 import os
-from concurrent.futures import ProcessPoolExecutor
-
+# from concurrent.futures import ProcessPoolExecutor
 import numpy as np
 import tifffile 
-
 from cloudvolume import CloudVolume
-from cloudvolume.lib import mkdir, touch
+import argparse
+# from cloudvolume.lib import mkdir, touch
 
+parser = argparse.ArgumentParser(description='Upload raw image dataset to neuroglancer-compatible cloud volume.')
+parser.add_argument('--img', type=str, help='Path to the tiff file to upload.')
+parser.add_argument('--bucket', type=str, help='Cloud bucket path, e.g. gs://bucket/dataset/layer')
+parser.add_argument('--description', type=str, help='Description of the dataset.')
+
+args = parser.parse_args()
+bucket_path = args.bucket
+stack_description = args.description
+
+# ---- path to raw image
+img_name = args.img #'local/path/to/image.tif'
+
+print(f'Uploading image {img_name} to bucket {bucket_path}')
+
+# ---- create neuroglancer info file for dataset
 info = CloudVolume.create_new_info(
 	num_channels = 1,
 	layer_type = 'image', # 'image' or 'segmentation'
@@ -38,28 +42,31 @@ info = CloudVolume.create_new_info(
 # to work with RGB data, set num_channels=3 and data_type='uint8' above. need to also paste some code into neuroglancer 
 # rendering box if using RGB, see https://github.com/seung-lab/cloud-volume/wiki/Example-Single-Machine-Dataset-Upload
 
-# path to raw image
-img_name = 'local/path/to/image.tif'
-
+# ---- create cloud volume object
 # If you're using amazon or the local file system, you can replace 'gs' with 's3' or 'file'
-vol = CloudVolume('gs://bucket/dataset/layer', info=info)
-vol.provenance.description = "Description of Data"
+vol = CloudVolume(bucket_path, info=info)
+vol.provenance.description = stack_description
 vol.provenance.owners = ['michael.winding@crick.ac.uk/mwinding']  #['email_address_for_uploader/imager'] # list of contact email addresses
 
 vol.commit_info() # generates gs://bucket/dataset/layer/info json file
 vol.commit_provenance() # generates gs://bucket/dataset/layer/provenance json file
 
-
+# ---- process and upload image stack
 # check file is a tif file 
 def is_tif(filename):
 	return filename.lower().endswith(('.tif', '.tiff'))
 
+if not is_tif(img_name):
+	raise ValueError('Input file is not a tiff file: ', img_name)
 
 image = tifffile.imread(img_name)
-# image = np.swapaxes(image, 0, 1)
-# image = image[..., np.newaxis]
 print('Image stack shape: ', image.shape)
-assert image.shape == (1250, 1250, 672)  # check matches volume size above
+
+image = np.transpose(image, (2, 1, 0)) # from tif ZYX to neuroglancer XYZ
+assert image.shape == (1250, 1250, 672)  # check image stack matches expected volume size above
+assert image.dtype == np.uint8  # check image data type matches expected data type above
+
+# upload image stack to cloud volume
 vol[:,:,:] = image
 
 
