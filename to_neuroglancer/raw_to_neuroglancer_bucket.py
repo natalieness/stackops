@@ -41,7 +41,7 @@ info = CloudVolume.create_new_info(
 # If you're using amazon or the local file system, you can replace 'gs' with 's3' or 'file'
 vol = CloudVolume('gs://bucket/dataset/layer', info=info)
 vol.provenance.description = "Description of Data"
-vol.provenance.owners = ['email_address_for_uploader/imager'] # list of contact email addresses
+vol.provenance.owners = ['michael.winding@crick.ac.uk/mwinding']  #['email_address_for_uploader/imager'] # list of contact email addresses
 
 vol.commit_info() # generates gs://bucket/dataset/layer/info json file
 vol.commit_provenance() # generates gs://bucket/dataset/layer/provenance json file
