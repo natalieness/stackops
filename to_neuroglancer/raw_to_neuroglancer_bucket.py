@@ -24,8 +24,19 @@ stack_description = args.description
 
 # ---- path to raw image
 img_name = args.img #'local/path/to/image.tif'
+print(f'Uploading image {img_name} to {bucket_path}')
 
-print(f'Uploading image {img_name} to bucket {bucket_path}')
+# get dimensions
+# check file is a tif file 
+def is_tif(filename):
+	return filename.lower().endswith(('.tif', '.tiff'))
+
+if not is_tif(img_name):
+	raise ValueError('Input file is not a tiff file: ', img_name)
+
+image = tifffile.imread(img_name)
+print('Image stack shape: ', image.shape)
+vol_Z, vol_Y, vol_X = image.shape
 
 # ---- create neuroglancer info file for dataset
 info = CloudVolume.create_new_info(
@@ -36,7 +47,7 @@ info = CloudVolume.create_new_info(
 	resolution = [ 8, 8, 8 ], # X,Y,Z values in nanometers
 	voxel_offset = [ 0, 0, 0 ], # values X,Y,Z values in voxels
 	chunk_size = [ 128, 128, 128 ], # rechunk of image X,Y,Z in voxels
-	volume_size = [  1250, 1250, 672 ], # X,Y,Z size in voxels
+	volume_size = [  int(vol_X), int(vol_Y), int(vol_Z) ], # X,Y,Z size in voxels
 )
 
 # to work with RGB data, set num_channels=3 and data_type='uint8' above. need to also paste some code into neuroglancer 
@@ -52,18 +63,9 @@ vol.commit_info() # generates gs://bucket/dataset/layer/info json file
 vol.commit_provenance() # generates gs://bucket/dataset/layer/provenance json file
 
 # ---- process and upload image stack
-# check file is a tif file 
-def is_tif(filename):
-	return filename.lower().endswith(('.tif', '.tiff'))
-
-if not is_tif(img_name):
-	raise ValueError('Input file is not a tiff file: ', img_name)
-
-image = tifffile.imread(img_name)
-print('Image stack shape: ', image.shape)
 
 image = np.transpose(image, (2, 1, 0)) # from tif ZYX to neuroglancer XYZ
-assert image.shape == (1250, 1250, 672)  # check image stack matches expected volume size above
+assert image.shape == (int(vol_X), int(vol_Y), int(vol_Z))  # check image stack matches expected volume size above
 assert image.dtype == np.uint8  # check image data type matches expected data type above
 
 # upload image stack to cloud volume
