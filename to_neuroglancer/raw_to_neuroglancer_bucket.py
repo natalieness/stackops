@@ -18,6 +18,8 @@ parser.add_argument('--img', type=str, help='Path to the tiff file to upload.')
 parser.add_argument('--bucket', type=str, help='Cloud bucket path, e.g. gs://bucket/dataset/layer')
 parser.add_argument('--description', type=str, help='Description of the dataset.')
 
+# note if using local file system, need to start with file://
+
 args = parser.parse_args()
 bucket_path = args.bucket
 stack_description = args.description
@@ -55,6 +57,7 @@ info = CloudVolume.create_new_info(
 
 # ---- create cloud volume object
 # If you're using amazon or the local file system, you can replace 'gs' with 's3' or 'file'
+
 vol = CloudVolume(bucket_path, info=info)
 vol.provenance.description = stack_description
 vol.provenance.owners = ['michael.winding@crick.ac.uk/mwinding']  #['email_address_for_uploader/imager'] # list of contact email addresses
