@@ -58,7 +58,7 @@ info = CloudVolume.create_new_info(
 # ---- create cloud volume object
 # If you're using amazon or the local file system, you can replace 'gs' with 's3' or 'file'
 
-vol = CloudVolume(bucket_path, info=info)
+vol = CloudVolume(bucket_path, info=info, compress=False)
 vol.provenance.description = stack_description
 vol.provenance.owners = ['michael.winding@crick.ac.uk/mwinding']  #['email_address_for_uploader/imager'] # list of contact email addresses
 
