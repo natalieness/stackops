@@ -17,16 +17,17 @@ parser = argparse.ArgumentParser(description='Upload raw image dataset to neurog
 parser.add_argument('--img', type=str, help='Path to the tiff file to upload.')
 parser.add_argument('--bucket', type=str, help='Cloud bucket path, e.g. gs://bucket/dataset/layer')
 parser.add_argument('--description', type=str, help='Description of the dataset.')
+parser.add_argument('--sample_name', type=str, help='Name of the sample being uploaded, e.g. "sample1"')
 
 # note if using local file system, need to start with file://
 
 args = parser.parse_args()
 bucket_path = args.bucket
 stack_description = args.description
-
+sample_name = args.sample_name
 # ---- path to raw image
 img_name = args.img #'local/path/to/image.tif'
-print(f'Uploading image {img_name} to {bucket_path}')
+print(f'Uploading image {img_name} to {bucket_path} with sample name {sample_name}')
 
 # get dimensions
 # check file is a tif file 
@@ -58,7 +59,8 @@ info = CloudVolume.create_new_info(
 # ---- create cloud volume object
 # If you're using amazon or the local file system, you can replace 'gs' with 's3' or 'file'
 
-vol = CloudVolume(bucket_path, info=info, compress=False)
+obj_path = f'{bucket_path}/{sample_name}/image' # this is the path to the dataset within the bucket, e.g. gs://bucket/dataset/layer/sample1
+vol = CloudVolume(obj_path, info=info, compress=False) # secrets should be set automatically from json saved in .cloudvolume 
 vol.provenance.description = stack_description
 vol.provenance.owners = ['michael.winding@crick.ac.uk/mwinding']  #['email_address_for_uploader/imager'] # list of contact email addresses
 
