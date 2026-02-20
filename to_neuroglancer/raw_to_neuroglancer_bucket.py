@@ -39,7 +39,13 @@ if not is_tif(img_name):
 
 image = tifffile.imread(img_name)
 print('Image stack shape: ', image.shape)
+
+#if only a single slice, make this work anyways 
+if len(image.shape) == 2:
+	image = image[np.newaxis, ...] # add z dimension to make this work with rest of code
+
 vol_Z, vol_Y, vol_X = image.shape
+
 
 # ---- create neuroglancer info file for dataset
 info = CloudVolume.create_new_info(
