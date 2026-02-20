@@ -77,7 +77,7 @@ vol.commit_provenance() # generates gs://bucket/dataset/layer/provenance json fi
 
 image = np.transpose(image, (2, 1, 0)) # from tif ZYX to neuroglancer XYZ
 assert image.shape == (int(vol_X), int(vol_Y), int(vol_Z))  # check image stack matches expected volume size above
-assert image.dtype == np.uint8  # check image data type matches expected data type above
+assert image.dtype == np.uint8, f'Expected uint8, got {image.dtype}'  # check image data type matches expected data type above
 
 # upload image stack to cloud volume
 vol[:,:,:] = image
