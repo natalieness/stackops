@@ -18,6 +18,7 @@ parser.add_argument('--img', type=str, help='Path to the tiff file to upload.')
 parser.add_argument('--bucket', type=str, help='Cloud bucket path, e.g. gs://bucket/dataset/layer')
 parser.add_argument('--description', type=str, help='Description of the dataset.')
 parser.add_argument('--sample_name', type=str, help='Name of the sample being uploaded, e.g. "sample1"')
+parser.add_argument('--allow_8bit_conversion', action='store_true', help='Allow conversion to uint8 if input image is uint16. May lead to loss of information if original image is not really 16bit.')
 
 # note if using local file system, need to start with file://
 
@@ -25,9 +26,12 @@ args = parser.parse_args()
 bucket_path = args.bucket
 stack_description = args.description
 sample_name = args.sample_name
+allow_8bit_conversion = args.allow_8bit_conversion
+
 # ---- path to raw image
 img_name = args.img #'local/path/to/image.tif'
 print(f'Uploading image {img_name} to {bucket_path} with sample name {sample_name}')
+print(f'Allow conversion to uint8: {allow_8bit_conversion}')
 
 # get dimensions
 # check file is a tif file 
@@ -74,6 +78,13 @@ vol.commit_info() # generates gs://bucket/dataset/layer/info json file
 vol.commit_provenance() # generates gs://bucket/dataset/layer/provenance json file
 
 # ---- process and upload image stack
+if image.dtype != np.uint8:
+	if allow_8bit_conversion:
+		if image.dtype == np.uint16:
+			print('Converting 16bit to 8bit.')
+			image = (image >> 8 ).astype(np.uint8) 
+	else:
+		raise ValueError(f'Input image data type is {image.dtype}, expected uint8. Use --allow_8bit_conversion flag to allow conversion to uint8.')
 
 image = np.transpose(image, (2, 1, 0)) # from tif ZYX to neuroglancer XYZ
 assert image.shape == (int(vol_X), int(vol_Y), int(vol_Z))  # check image stack matches expected volume size above
